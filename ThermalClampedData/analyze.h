@@ -15,5 +15,5 @@ int hgt_profile();
 int avg_hgt_profile(FILE *,int);
 int width_hgt(int);
 int bb_hgt(int );
-int print_width(FILE *);
-int print_bb(FILE *);
+int print_width(FILE *,int);
+int print_bb(FILE *,int);

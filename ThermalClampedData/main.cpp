@@ -4,8 +4,6 @@
 #include <math.h>
 #include "stdint.h"
 #include "gsd.h"
-//#include "gsd_tools.h"
-//#include "gsd_fn.h"
 #include "variables.h"
 #include "gsd_read.h"
 #include "analyze.h"
@@ -19,26 +17,34 @@ double cnode[MAXRUN][MAXFRAMES];
 
 int main(int argc, char **argv)
 {
+
+  //File containing the valid runs for which Analysis will be performed
+  char runfile[256];
+  FILE *file;
+
    switch (argc){
      case 6:
        sscanf(argv[1],"%d",&nx);    
        sscanf(argv[2],"%d",&NY);
        sscanf(argv[3],"%lf",&KAPPA);
-       sscanf(argv[4],"%d",&RUN);
+       sscanf(argv[4],"%s",&runfile);
        sscanf(argv[5],"%d",&STEPS); 
        break;
      default:
-       print_and_exit("Usage: %s nx NY KAPPA RUN STEPS\n",argv[0]);
+       print_and_exit("Usage: %s nx NY KAPPA runfile STEPS\n",argv[0]);
   }
+
+  if(NULL==(file=fopen(runfile,"r")))
+        print_and_exit("I could not open file with simulation run numbers %s\n",runfile);
   
   FRAMES = STEPS/PERIOD;
   EPSILON = 720.0*KAPPA;
 
-  FILE *fp,*hgt,*wid,*bb,*cn;
-  char filepath[256],init_strip[256],trajectory_file[256],hgt_profile_file[256],hgt_width_file[256],hgt_bb_file[256],cnode_file[256];
+  FILE *fp,*hgt,*wid,*bb,*cn,*rf,*vf;
+  char filepath[256],init_strip[256],trajectory_file[256],hgt_profile_file[256],hgt_width_file[256],hgt_bb_file[256],cnode_file[256],analyzedruns_file[256],numvalidruns_file[256];
   double dhe,bhe;
   double backbone_T0,slider_T0;;
-  int frame_cnt=0;
+  int frame_cnt=0,runnum,r;
 
   // Init_strip.gsd filepath
   sprintf(init_strip,"../Sim_dump_ribbon/init_strip_L%d_W%d.gsd",nx,NY);
@@ -64,28 +70,45 @@ int main(int argc, char **argv)
   	print_and_exit("Could Not Open File to write central node time series");
   } 
 
-  /* Initializing the arrays	*/
-  //initialize();
-
   int c; //counter for frames inside each run 
 
-  for(int run=1;run<=RUN;run++)
+  //File containing filepaths of runs
+  sprintf(analyzedruns_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/valid_thermal_runs.log",nx,NY,KAPPA);
+
+  rf = fopen(analyzedruns_file, "w");
+  if (rf == NULL)
+   {
+        print_and_exit("Could Not Open File to write valid_thermal_runs.log");
+   }
+
+  //File containing number of valid runs
+  sprintf(numvalidruns_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/numvalidruns.log",nx,NY,KAPPA);
+  vf = fopen(numvalidruns_file, "w");
+  if (vf == NULL)
+  {
+        print_and_exit("Could Not Open File to write numvalidruns.log");
+  }
+
+   
+  r=0;//counter for number of runs being analyzed
+  while (fscanf(file, "%d", &runnum) == 1)// 1 is returned if fscanf reads a number
   {
 
 	  // Output filepath 
-	  sprintf(filepath,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/analyze.log",nx,NY,KAPPA,run);
+	  sprintf(filepath,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/analyzeThermal.log",nx,NY,KAPPA,runnum);
 	  printf("Filename of analyzed data: %s\n",filepath);
+	  fprintf(rf,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d\n",nx,NY,KAPPA,runnum);
 	  
 	  // Trajectory.gsd filepath
-	  sprintf(trajectory_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/traj_thermal.gsd",nx,NY,KAPPA,run);
+	  sprintf(trajectory_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/traj_thermal.gsd",nx,NY,KAPPA,runnum);
 	  printf("Trajectory File : %s\n",trajectory_file);
 
 	  //Avg Width height of the ribbon
-	  sprintf(hgt_width_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/width.bin",nx,NY,KAPPA,run);
+	  sprintf(hgt_width_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/hgt_widthavg.bin",nx,NY,KAPPA,runnum);
 	  printf("Height width File: %s\n",hgt_width_file);
 
 	  //Height of the ribbon backbone
-          sprintf(hgt_bb_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/backbone.bin",nx,NY,KAPPA,run);
+          sprintf(hgt_bb_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/backbone.bin",nx,NY,KAPPA,runnum);
           printf("Backbone Height File: %s\n",hgt_bb_file);
 
 	  fp = fopen(filepath, "w");
@@ -106,15 +129,11 @@ int main(int argc, char **argv)
                 print_and_exit("Could Not Open File to write backbone height data");
           }
 
-	  //printf("Reading GSD file: %s\n",argv[1]);
-	  //load_gsd(argv[1],0);
-	  
 	  /*	T=0 evaluations		*/
 	  load_gsd(init_strip,0);
 	  backbone_T0 = backbone_length(0);
-	  //backbone_length(0,fp);
 	  
-          c=0;//count of frames > FRAMES/2
+          //c=0;//count of frames > FRAMES/2
 	  initialize1();
 	  initialize3();
 	  
@@ -124,55 +143,72 @@ int main(int argc, char **argv)
 
 	  for(int frames=1;frames<FRAMES;frames++)
 	  {
-		initialize1();
-		//load_gsd(argv[2],frames);
 		load_gsd(trajectory_file,frames);
-		//backbone_length(frames,fp);
-		//printf("%d\t%lf\t%lf\n",frames,position[3*(nx-1)],position[3*(LEN-nx)]);
-		//cnode[run-1][frames-1]=position[3*((N+1)/2)+2];
-		if(frames==10)
-			printf("%d\t%d\t%.8f\t%.8f\t%d\n",run,frames,cnode[run-1][frames-1],position[3*((N+1)/2)+2],N);
 		dhe = bending_energy();
 		bhe = bond_harmonic_energy();
 		
 		fprintf(fp,"%d\t%.8f\t%.8f\t%.8f\t%.8f\t%.8f\t%.8f\t%.8f\t%.8f\n",frames,dhe,bhe,dhe+bhe,backbone_length(frames)-backbone_T0,avg_hgt(),avg_hgt_sq(),avg_slider_pos(),(slider_T0-avg_slider_pos())/avg_slider_pos());
-		
+
+		// Complete time series of central node
+		cnode[r][frames-1]=position[3*((N+1)/2)+2];
+
+		// Height of the ribbon averaged over the width
+		width_hgt(frames-1);
+
+		// Height of ribbon backbone
+		bb_hgt(frames-1);
+
+		// Average Height of each node in the lst half of the simulation
 		if(frames>=FRAMES/2)
 		{
-			initialize1();
-			frame_cnt++;
+			frame_cnt++;//counting over all runs no reset required
 			sum_hgt_node();
-			width_hgt(c);
-			bb_hgt(c);
-			cnode[run-1][c]=position[3*((N+1)/2)+2];
-			c++;
-			//if(c>2493)
-				//printf("%d\t",c);//frames - (FRAMES/2 + 1));
+			//c++;
 		}
-		//if(frames == FRAMES/2 + 1)
-		//width_hgt(0);			
 	  }
 
-	  print_width(wid); 
-	  print_bb(bb);
+	  r++; //counting the number of valid runs
+
+	  print_width(wid,FRAMES); 
+	  print_bb(bb,FRAMES);
 	  fclose(fp);
 	  fclose(wid);
 	  fclose(bb);
   }
+
+  //Number of valid runs written to file
+  fprintf(vf,"%d\n",r);
+
+  fclose(rf);
+  fclose(vf);
+  fclose(file);
   
   /*    writing central node height time series         */
-  fwrite(cnode, sizeof(double),MAXRUN*MAXFRAMES,cn); 
+  fwrite(&r,sizeof(int),1,cn);//Number of runs
+  for(int i=0;i<r;i++)
+  {
+	for(int j=0;j<FRAMES;j++)
+	{
+		fwrite(&cnode[i][j],sizeof(double),1,cn);
+	}
+  }
   fclose(cn);
+
+  // Output files are generated only for the valid runs
 
   //Average Height of each node (averaged over last half of the frames)
   avg_hgt_node(frame_cnt);
 
+  
+  if(NULL==(file=fopen(runfile,"r")))
+        print_and_exit("I could not open file with simulation run numbers %s\n",runfile);
+
+  initialize2(); // Initializing the hgt_fluctuation array 
   frame_cnt=0;
-  for(int run=1;run<=RUN;run++)
+  while (fscanf(file, "%d", &runnum) == 1)// 1 is returned if fscanf reads a number
   {
 	// Trajectory.gsd filepath
-	sprintf(trajectory_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/traj_thermal.gsd",nx,NY,KAPPA,run);
-	initialize2(); // Initializing the hgt_fluctuation array 
+	sprintf(trajectory_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/traj_thermal.gsd",nx,NY,KAPPA,runnum);
 	for(int frames=FRAMES/2;frames<FRAMES;frames++)
 	{
 		load_gsd(trajectory_file,frames);
@@ -181,6 +217,8 @@ int main(int argc, char **argv)
 		frame_cnt++;
 	}
   }
+
+  fclose(file);
 
   //Average Height Fluctuation 
   avg_hgt_profile(hgt,frame_cnt);

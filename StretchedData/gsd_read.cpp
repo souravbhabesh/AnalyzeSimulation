@@ -10,7 +10,7 @@
 int N,Nb,Nd,bondGroup[NMAX*2],dihedralGroup[NMAX*4];
 float position[NMAX*3];
 uint32_t particleID[NMAX];
-char particleType[5][2];
+char particleType[MAXPARTICLETYPES][2];
 
 void print_and_exit(char *format, ...)
 {
@@ -67,7 +67,8 @@ void load_gsd( char fname[30], uint64_t frame)
 */
   if(frame==0)
   {
-          printf("\n# bonds = %d\n",Nb);
+          printf("# bonds = %d\n",Nb);
+	  printf("# dihedrals = %d\n\n",Nd);
 /*          for(int i=0;i<Nb;i++)
           {
                 //printf("%d %d\n",bondGroup[2*i],bondGroup[2*i+1]);

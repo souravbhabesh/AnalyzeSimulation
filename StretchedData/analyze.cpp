@@ -200,7 +200,7 @@ int initialize3()
 {
    for(int i=0;i<FRAMES;i++)
    {
-	for(int j=0;j<2*nx;j++)
+	for(int j=0;j<nx;j++)
 	{
    	   h_width[i][j]=0;
 	}
@@ -325,28 +325,36 @@ int width_hgt(int frame)
 }
 
 /*	Printing Width Height Average for all frames	*/
-int print_width(FILE *wid)
+int print_width(FILE *wid,int total_frames)
 {
-  fwrite(h_width, sizeof(double),MAXFRAMES*NXMAX,wid);//FRAMES*nx,wid);
-/*  for(int i=0;i<nx;i++)
-   {
-	printf("%d\t",i);
-        for(int j=2494;j<=2500;j++)
+  //fwrite(h_width, sizeof(double),MAXFRAMES*NXMAX,wid);//FRAMES*nx,wid);
+  fwrite(&nx,sizeof(int),1,wid);
+  fwrite(&total_frames,sizeof(int),1,wid);
+  for(int i=0;i<total_frames;i++)
+  {
+        for(int j=0;j<nx;j++)
         {
-           printf("%.8f\t",h_width[j][i]);
+                fwrite(&h_width[i][j],sizeof(double),1,wid);
         }
-	printf("\n");
-   }
-*/
+  }
    printf("#Frames in last half of simulation : %d\n",FRAMES/2);
 
   return 0;
 }
 
 /*	Printing Backbone height for all frames	*/
-int print_bb(FILE *bb)
+int print_bb(FILE *bb,int total_frames)
 {
-  fwrite(h_bb, sizeof(double),MAXFRAMES*NXMAX,bb);//FRAMES*nx/2,bb);
+  //fwrite(h_bb, sizeof(double),MAXFRAMES*NXMAX,bb);//FRAMES*nx/2,bb);
+  fwrite(&nx,sizeof(int),1,bb);
+  fwrite(&total_frames,sizeof(int),1,bb);
+  for(int i=0;i<total_frames;i++)
+  {
+        for(int j=0;j<nx;j++)
+        {
+                fwrite(&h_bb[i][j],sizeof(double),1,bb);
+        }
+  }
   return 0;
 }
 
